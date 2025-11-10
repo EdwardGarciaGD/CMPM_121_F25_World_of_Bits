@@ -53,6 +53,15 @@ playerMarker.addTo(map);
 let playerInventory = 0;
 statusPanel.innerHTML = "You are holding nothing";
 
+// Player's neighborhood cache spawn
+for (let i = -NEIGHBORHOOD_SIZE; i < NEIGHBORHOOD_SIZE; i++) {
+  for (let j = -NEIGHBORHOOD_SIZE; j < NEIGHBORHOOD_SIZE; j++) {
+    if (luck([i, j].toString()) < CACHE_SPAWN_PROBABILITY) {
+      spawnCache(i, j);
+    }
+  }
+}
+
 // Adds caches to the map by cell numbers
 function spawnCache(i: number, j: number) {
   const origin = startingLocation;
@@ -61,7 +70,6 @@ function spawnCache(i: number, j: number) {
     [origin.lat + (i + 1) * TILE_DEGREES, origin.lng + (j + 1) * TILE_DEGREES],
   ]);
 
-  // Adds a rectangle to the map to represent the cache
   const rect = leaflet.rectangle(bounds);
   rect.addTo(map);
 
@@ -89,13 +97,4 @@ function spawnCache(i: number, j: number) {
 
     return popupDiv;
   });
-}
-
-// Player's neighborhood cache spawn
-for (let i = -NEIGHBORHOOD_SIZE; i < NEIGHBORHOOD_SIZE; i++) {
-  for (let j = -NEIGHBORHOOD_SIZE; j < NEIGHBORHOOD_SIZE; j++) {
-    if (luck([i, j].toString()) < CACHE_SPAWN_PROBABILITY) {
-      spawnCache(i, j);
-    }
-  }
 }
