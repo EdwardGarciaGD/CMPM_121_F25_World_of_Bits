@@ -3,12 +3,13 @@ import "leaflet/dist/leaflet.css"; // Supporting style for Leaflet
 import "./style.css";
 import "./_leafletWorkaround.ts"; // Fixes for missing Leaflet images
 import luck from "./_luck.ts";
+import playerIconURL from "./Player Icon.jpg";
 
 // Gameplay parameters
 const GAMEPLAY_ZOOM_LEVEL = 17;
 const TILE_DEGREES = .9e-4;
 const NEIGHBORHOOD_SIZE = 139;
-const CACHE_SPAWN_PROBABILITY = 0.1;
+const cacheSpawnProbability = 0.3;
 const startingLocation = leaflet.latLng(
   36.997936938057016,
   -122.05703507501151,
@@ -45,18 +46,22 @@ leaflet
   .addTo(map);
 
 // Player marker
-const playerMarker = leaflet.marker(startingLocation);
+const playerIcon = leaflet.icon({
+  iconUrl: playerIconURL,
+  iconSize: [40, 40],
+});
+const playerMarker = leaflet.marker(startingLocation, { icon: playerIcon })
+  .addTo(map);
 playerMarker.bindTooltip("You are here");
-playerMarker.addTo(map);
 
 // Player's inventory
 let playerInventory = 0;
 statusPanel.innerHTML = "You are holding nothing";
 
-// Player's neighborhood cache spawn
+// Player's neighborhood cache spawn loop
 for (let i = -NEIGHBORHOOD_SIZE; i < NEIGHBORHOOD_SIZE; i++) {
   for (let j = -NEIGHBORHOOD_SIZE; j < NEIGHBORHOOD_SIZE; j++) {
-    if (luck([i, j].toString()) < CACHE_SPAWN_PROBABILITY) {
+    if (luck([i, j].toString()) < cacheSpawnProbability) {
       spawnCache(i, j);
     }
   }
