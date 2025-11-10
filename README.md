@@ -1,3 +1,4 @@
 # CMPM 121 D3 Project
 
-This is the starting point for your CMPM 121 D3 project. Students should make sure to remove _this_ content from their README.md file and replace it with their own project documentation.
+This project is a geo cache video game where the player can move about the world and combine tokens to achieve desired combo.
+The project is also an experience into practicing the use of Leaflet, setting up and updating a PLAN.md file, able to run on a mobile browser across many browser sessions, and practicing flyweight, facade, and memento design patterns.
