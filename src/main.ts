@@ -6,9 +6,11 @@ import luck from "./_luck.ts";
 import playerIconURL from "./Player Icon.jpg";
 
 // Gameplay parameters
-const GAMEPLAY_ZOOM_LEVEL = 17;
-const TILE_DEGREES = .9e-4;
-const NEIGHBORHOOD_SIZE = 139;
+const mapZoomLevel = 17;
+const minMapZoomLevel = 14;
+const maxMapZoomLevel = 18;
+const tileDegrees = .9e-4;
+const neighborhoodSize = 139;
 const cacheSpawnProbability = 0.3;
 const startingLocation = leaflet.latLng(
   36.997936938057016,
@@ -26,24 +28,29 @@ const statusPanel = document.createElement("div");
 statusPanel.id = "statusPanel";
 document.body.append(statusPanel);
 
+/*const currentLocationButton = document.createElement("button");
+currentLocationButton.innerText = "Recenter";
+document.body.append(currentLocationButton);
+currentLocationButton.onclick = () => { locateUser() };*/
+
 // Map creation
 const map = leaflet.map(mapStyle, {
   center: startingLocation,
-  zoom: GAMEPLAY_ZOOM_LEVEL,
-  minZoom: GAMEPLAY_ZOOM_LEVEL - 3,
-  maxZoom: GAMEPLAY_ZOOM_LEVEL + 1,
+  zoom: mapZoomLevel,
+  minZoom: minMapZoomLevel,
+  maxZoom: maxMapZoomLevel,
   zoomControl: true,
+  touchZoom: true,
   scrollWheelZoom: true,
 });
+map.setView(startingLocation);
 
 // Background tile layer
-leaflet
-  .tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    maxZoom: 19,
-    attribution:
-      '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-  })
-  .addTo(map);
+leaflet.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+  maxZoom: 19,
+  attribution:
+    '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+}).addTo(map);
 
 // Player marker
 const playerIcon = leaflet.icon({
@@ -59,8 +66,8 @@ let playerInventory = 0;
 statusPanel.innerHTML = "You are holding nothing";
 
 // Player's neighborhood cache spawn loop
-for (let i = -NEIGHBORHOOD_SIZE; i < NEIGHBORHOOD_SIZE; i++) {
-  for (let j = -NEIGHBORHOOD_SIZE; j < NEIGHBORHOOD_SIZE; j++) {
+for (let i = -neighborhoodSize; i < neighborhoodSize; i++) {
+  for (let j = -neighborhoodSize; j < neighborhoodSize; j++) {
     if (luck([i, j].toString()) < cacheSpawnProbability) {
       spawnCache(i, j);
     }
@@ -71,8 +78,8 @@ for (let i = -NEIGHBORHOOD_SIZE; i < NEIGHBORHOOD_SIZE; i++) {
 function spawnCache(i: number, j: number) {
   const origin = startingLocation;
   const bounds = leaflet.latLngBounds([
-    [origin.lat + i * TILE_DEGREES, origin.lng + j * TILE_DEGREES],
-    [origin.lat + (i + 1) * TILE_DEGREES, origin.lng + (j + 1) * TILE_DEGREES],
+    [origin.lat + i * tileDegrees, origin.lng + j * tileDegrees],
+    [origin.lat + (i + 1) * tileDegrees, origin.lng + (j + 1) * tileDegrees],
   ]);
 
   const rect = leaflet.rectangle(bounds);
@@ -103,3 +110,12 @@ function spawnCache(i: number, j: number) {
     return popupDiv;
   });
 }
+
+/*function locateUser() {
+  map.locate({ setView: true, maxZoom: 20, enableHighAccuracy: true });
+
+      map.on('locationerror', (e) => {
+      alert("📍 Location access denied or unavailable. Check browser permissions!");
+      console.error(e.message);
+    });
+}*/
