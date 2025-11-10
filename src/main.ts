@@ -9,7 +9,7 @@ import playerIconURL from "./Player Icon.jpg";
 const mapZoomLevel = 17;
 const minMapZoomLevel = 14;
 const maxMapZoomLevel = 18;
-const tileDegrees = .9e-4;
+const tileDegrees = 2e-4;
 const neighborhoodSize = 139;
 const cacheSpawnProbability = 0.3;
 const startingLocation = leaflet.latLng(
@@ -77,37 +77,56 @@ for (let i = -neighborhoodSize; i < neighborhoodSize; i++) {
 // Adds caches to the map by cell numbers
 function spawnCache(i: number, j: number) {
   const origin = startingLocation;
-  const bounds = leaflet.latLngBounds([
-    [origin.lat + i * tileDegrees, origin.lng + j * tileDegrees],
-    [origin.lat + (i + 1) * tileDegrees, origin.lng + (j + 1) * tileDegrees],
+  const bounds = leaflet.latLng([
+    origin.lat + i * tileDegrees,
+    origin.lng + j * tileDegrees,
   ]);
+  let pointValue = Math.floor(luck([i, j, "initialValue"].toString()) * 2);
 
-  const rect = leaflet.rectangle(bounds);
-  rect.addTo(map);
+  const circleCache = leaflet.circle(bounds, { radius: 7 }).addTo(map);
+  circleCache.bindPopup(() => {
+    const cachePopup = document.createElement("div");
+    cachePopup.innerHTML = ` Value ${pointValue}`;
 
-  // Handle interactions with the cache
-  rect.bindPopup(() => {
-    // Each cache has a random point value, mutable by the player
-    let pointValue = Math.floor(luck([i, j, "initialValue"].toString()) * 5);
+    const dropButton = document.createElement("button");
+    dropButton.className = "drop";
+    dropButton.innerText = "Drop";
+    cachePopup.appendChild(dropButton);
 
-    // The popup offers a description and button
-    const popupDiv = document.createElement("div");
-    popupDiv.innerHTML = `
-                <div>There is a cache here at "${i},${j}". It has value <span id="value">${pointValue}</span>.</div>
-                <button id="poke">poke</button>`;
+    const takeButton = document.createElement("button");
+    takeButton.className = "take";
+    takeButton.innerText = "Take";
+    cachePopup.appendChild(takeButton);
 
-    // Clicking the button decrements the cache's value and increments the player's points
-    popupDiv
-      .querySelector<HTMLButtonElement>("#poke")!
+    cachePopup
+      .querySelector<HTMLButtonElement>(".take")!
       .addEventListener("click", () => {
-        pointValue--;
-        popupDiv.querySelector<HTMLSpanElement>("#value")!.innerHTML =
-          pointValue.toString();
-        playerInventory++;
-        statusPanel.innerHTML = `${playerInventory} points accumulated`;
+        if (pointValue !== 0) {
+          if (playerInventory === pointValue || playerInventory === 0) {
+            playerInventory += pointValue;
+            pointValue = 0;
+            cachePopup.innerHTML =
+              ` Value ${pointValue} <button id="drop">Drop</button>`;
+            statusPanel.innerHTML = `You have ${playerInventory}`;
+          } else {
+            statusPanel.innerHTML =
+              `You hand value is not the same value to combine them`;
+          }
+        }
+      });
+    cachePopup
+      .querySelector<HTMLButtonElement>(".drop")!
+      .addEventListener("click", () => {
+        if (pointValue === 0 && playerInventory > 0) {
+          pointValue = playerInventory;
+          playerInventory = 0;
+          cachePopup.innerHTML =
+            ` Value ${pointValue} <button id="take">Take</button>`;
+          statusPanel.innerHTML = `You have ${playerInventory}`;
+        }
       });
 
-    return popupDiv;
+    return cachePopup;
   });
 }
 
