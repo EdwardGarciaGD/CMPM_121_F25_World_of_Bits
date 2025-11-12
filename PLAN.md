@@ -25,7 +25,7 @@ Leaflet mapping framework?
 Key gameplay challenge: Can players collect and craft tokens from nearby
 locations to finally make one of sufficiently high value?
 
-### Steps
+### D3.a Steps
 
 - [x] copy main.ts to reference.ts for future reference
 - [x] delete everything in main.ts
@@ -35,3 +35,19 @@ locations to finally make one of sufficiently high value?
 - [x] use loops to draw a whole grid of cells on the map
 - [x] Have player grab token and combine with same value tokens
 - [x] Have player be able to drop token value currently in hand to any empty cell
+
+## D3.b: Globe Spanning Gameplay (User movement and cell expansion throughout map)
+
+​Key technical challenge: Can you set up your implementation to support gameplay
+anywhere in the real world, not just locations near our classroom?
+​Key gameplay challenge: Can players craft an even higher value token by moving to
+other locations to get access to additional crafting materials?
+
+### D3.b Steps
+
+- [ ] Create local user movement with arrow key buttons
+- [ ] Have cells around user be interactable with different color display
+- [ ] Have cells far from user to be non-interactable with different color display
+- [ ] Have cells to be memoryless and farmable by user
+- [ ] Have achievement ending when user reaches certain number on inventory
+- [ ] Have refactoring between each step
