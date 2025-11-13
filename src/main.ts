@@ -1,11 +1,12 @@
 import leaflet from "leaflet";
 import "leaflet/dist/leaflet.css"; // Supporting style for Leaflet
-import "./style.css";
 import "./_leafletWorkaround.ts"; // Fixes for missing Leaflet images
 import luck from "./_luck.ts";
+import "./style.css";
 import playerIconURL from "./Player Icon.jpg";
 
 // Gameplay parameters
+const emptyInventoryString = "You are holding nothing";
 const mapZoomLevel = 17;
 const minMapZoomLevel = 14;
 const maxMapZoomLevel = 18;
@@ -63,7 +64,7 @@ playerMarker.bindTooltip("You are here");
 
 // Player's inventory
 let playerInventory = 0;
-statusPanel.innerHTML = "You are holding nothing";
+statusPanel.innerHTML = emptyInventoryString;
 
 // Player's neighborhood cache spawn loop
 for (let i = -neighborhoodSize; i < neighborhoodSize; i++) {
@@ -76,58 +77,79 @@ for (let i = -neighborhoodSize; i < neighborhoodSize; i++) {
 
 // Adds caches to the map by cell numbers
 function spawnCache(i: number, j: number) {
-  const origin = startingLocation;
   const bounds = leaflet.latLng([
-    origin.lat + i * tileDegrees,
-    origin.lng + j * tileDegrees,
+    startingLocation.lat + i * tileDegrees,
+    startingLocation.lng + j * tileDegrees,
   ]);
-  let pointValue = Math.floor(luck([i, j, "initialValue"].toString()) * 2);
+
+  let cellTokenValue = Math.floor(luck([i, j, "initialValue"].toString()) * 2);
+
+  const cachePopup = document.createElement("div");
+
+  const popupText = document.createElement("p");
+  popupText.textContent = updatePopupText(cellTokenValue);
+  cachePopup.appendChild(popupText);
+
+  const takeButton = createDocuElement("button", "take", "Take");
+  cachePopup.appendChild(takeButton);
+
+  const dropButton = createDocuElement("button", "drop", "Drop");
+  cachePopup.appendChild(dropButton);
 
   const circleCache = leaflet.circle(bounds, { radius: 7 }).addTo(map);
   circleCache.bindPopup(() => {
-    const cachePopup = document.createElement("div");
-    cachePopup.innerHTML = ` Value ${pointValue}`;
-
-    const dropButton = document.createElement("button");
-    dropButton.className = "drop";
-    dropButton.innerText = "Drop";
-    cachePopup.appendChild(dropButton);
-
-    const takeButton = document.createElement("button");
-    takeButton.className = "take";
-    takeButton.innerText = "Take";
-    cachePopup.appendChild(takeButton);
-
-    cachePopup
-      .querySelector<HTMLButtonElement>(".take")!
-      .addEventListener("click", () => {
-        if (pointValue !== 0) {
-          if (playerInventory === pointValue || playerInventory === 0) {
-            playerInventory += pointValue;
-            pointValue = 0;
-            cachePopup.innerHTML =
-              ` Value ${pointValue} <button id="drop">Drop</button>`;
-            statusPanel.innerHTML = `You have ${playerInventory}`;
-          } else {
-            statusPanel.innerHTML =
-              `You hand value is not the same value to combine them`;
-          }
+    // Updates player Inventory and token value inside cell
+    takeButton.addEventListener("click", () => {
+      if (cellTokenValue > 0) {
+        if (playerInventory === cellTokenValue || playerInventory === 0) {
+          playerInventory += cellTokenValue;
+          cellTokenValue = 0;
+          statusPanel.innerHTML = updatePanelText();
+        } else {
+          statusPanel.innerHTML = "Cannot combine unequal proportions";
         }
-      });
-    cachePopup
-      .querySelector<HTMLButtonElement>(".drop")!
-      .addEventListener("click", () => {
-        if (pointValue === 0 && playerInventory > 0) {
-          pointValue = playerInventory;
-          playerInventory = 0;
-          cachePopup.innerHTML =
-            ` Value ${pointValue} <button id="take">Take</button>`;
-          statusPanel.innerHTML = `You have ${playerInventory}`;
-        }
-      });
+        popupText.textContent = updatePopupText(cellTokenValue);
+      }
+    });
+
+    dropButton.addEventListener("click", () => {
+      if (cellTokenValue === 0) {
+        cellTokenValue = playerInventory;
+        playerInventory = 0;
+        statusPanel.innerHTML = updatePanelText();
+        popupText.textContent = updatePopupText(cellTokenValue);
+      }
+    });
 
     return cachePopup;
   });
+}
+
+function createDocuElement(
+  elementType: string,
+  className: string,
+  elementText: string,
+) {
+  const button = document.createElement(elementType);
+  button.className = className;
+  button.innerText = elementText;
+  return button;
+}
+
+function updatePopupText(value: number) {
+  if (value <= 0) return "Empty";
+  else if (value === 1) return `${value} twig`;
+  else {
+    return `${value} twigs`;
+  }
+}
+
+function updatePanelText() {
+  if (playerInventory === 1) return `You have ${playerInventory} twig`;
+  if (playerInventory > 0) return `You have ${playerInventory} twigs`;
+  else {
+    return emptyInventoryString;
+  }
 }
 
 /*function locateUser() {
