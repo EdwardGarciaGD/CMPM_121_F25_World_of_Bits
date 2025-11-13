@@ -1,9 +1,14 @@
-import leaflet from "leaflet";
+import * as L from "leaflet";
 import "leaflet/dist/leaflet.css"; // Supporting style for Leaflet
 import "./_leafletWorkaround.ts"; // Fixes for missing Leaflet images
 import luck from "./_luck.ts";
 import "./style.css";
 import playerIconURL from "./Player Icon.jpg";
+
+type coordinates = {
+  i: number;
+  j: number;
+};
 
 // Gameplay parameters
 const emptyInventoryString = "You are holding nothing";
@@ -13,10 +18,15 @@ const maxMapZoomLevel = 18;
 const tileDegrees = 2e-4;
 const neighborhoodSize = 139;
 const cacheSpawnProbability = 0.3;
-const startingLocation = leaflet.latLng(
+const startingLocation = L.latLng(
   36.997936938057016,
   -122.05703507501151,
 );
+
+const userCoords: coordinates = {
+  i: 36.997936938057016,
+  j: -122.05703507501151,
+};
 
 // UI elements
 document.title = "Beachcomb the World";
@@ -35,7 +45,7 @@ document.body.append(currentLocationButton);
 currentLocationButton.onclick = () => { locateUser() };*/
 
 // Map creation
-const map = leaflet.map(mapStyle, {
+const map = L.map(mapStyle, {
   center: startingLocation,
   zoom: mapZoomLevel,
   minZoom: minMapZoomLevel,
@@ -47,24 +57,38 @@ const map = leaflet.map(mapStyle, {
 map.setView(startingLocation);
 
 // Background tile layer
-leaflet.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
   maxZoom: 19,
   attribution:
     '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>',
 }).addTo(map);
 
 // Player marker
-const playerIcon = leaflet.icon({
+const playerIcon = L.icon({
   iconUrl: playerIconURL,
   iconSize: [40, 40],
 });
-const playerMarker = leaflet.marker(startingLocation, { icon: playerIcon })
+const playerMarker = L.marker(startingLocation, { icon: playerIcon })
   .addTo(map);
 playerMarker.bindTooltip("You are here");
 
 // Player's inventory
 let playerInventory = 0;
 statusPanel.innerHTML = emptyInventoryString;
+
+const leftMovement = createCustomControl("◀", "W");
+const upMovement = createCustomControl("▲", "N");
+const downMovement = createCustomControl("▼", "S");
+const rightMovement = createCustomControl("▶", "E");
+
+let userControl = new leftMovement({ position: "bottomleft" });
+userControl.addTo(map);
+userControl = new upMovement({ position: "bottomleft" });
+userControl.addTo(map);
+userControl = new downMovement({ position: "bottomleft" });
+userControl.addTo(map);
+userControl = new rightMovement({ position: "bottomleft" });
+userControl.addTo(map);
 
 // Player's neighborhood cache spawn loop
 for (let i = -neighborhoodSize; i < neighborhoodSize; i++) {
@@ -77,7 +101,7 @@ for (let i = -neighborhoodSize; i < neighborhoodSize; i++) {
 
 // Adds caches to the map by cell numbers
 function spawnCache(i: number, j: number) {
-  const bounds = leaflet.latLng([
+  const bounds = L.latLng([
     startingLocation.lat + i * tileDegrees,
     startingLocation.lng + j * tileDegrees,
   ]);
@@ -96,7 +120,7 @@ function spawnCache(i: number, j: number) {
   const dropButton = createDocuElement("button", "drop", "Drop");
   cachePopup.appendChild(dropButton);
 
-  const circleCache = leaflet.circle(bounds, { radius: 7 }).addTo(map);
+  const circleCache = L.circle(bounds, { radius: 7 }).addTo(map);
   circleCache.bindPopup(() => {
     // Updates player Inventory and token value inside cell
     takeButton.addEventListener("click", () => {
@@ -150,6 +174,31 @@ function updatePanelText() {
   else {
     return emptyInventoryString;
   }
+}
+
+function moveUser(direction: "N" | "S" | "E" | "W") {
+  const offset =
+    { N: [.001, 0], S: [-.001, 0], E: [0, .001], W: [0, -.001] }[direction];
+  userCoords.i += offset[0];
+  userCoords.j += offset[1];
+  playerMarker.setLatLng([userCoords.i, userCoords.j]);
+  map.panTo([userCoords.i, userCoords.j]);
+}
+
+function createCustomControl(text: string, direction: "N" | "S" | "E" | "W") {
+  const control = L.Control.extend({
+    options: { position: "bottomright" },
+    onAdd: function () {
+      const button = L.DomUtil.create("button");
+      button.innerHTML = text;
+      button.onclick = () => {
+        moveUser(direction);
+      };
+
+      return button;
+    },
+  });
+  return control;
 }
 
 /*function locateUser() {
