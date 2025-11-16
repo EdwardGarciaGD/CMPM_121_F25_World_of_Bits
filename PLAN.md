@@ -46,8 +46,8 @@ other locations to get access to additional crafting materials?
 ### D3.b Steps
 
 - [x] Create local user movement with arrow key buttons
-- [ ] Have cells around user be interactable with different color display
-- [ ] Have cells far from user to be non-interactable with different color display
+- [x] Have cells around user be interactable with different color display
+- [x] Have cells far from user to be non-interactable with different color display
 - [x] Have cells to be memoryless and farmable by user
 - [ ] Have achievement ending when user reaches certain number on inventory
 - [ ] Have refactoring between each step
