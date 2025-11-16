@@ -51,3 +51,18 @@ other locations to get access to additional crafting materials?
 - [x] Have cells to be memoryless and farmable by user
 - [x] Have achievement ending when user reaches certain number on inventory
 - [x] Have refactoring between each step
+
+## D3.c: Object Persistence (Cells maintain value state)
+
+​Key technical challenge: Can your software accurately remember the state of map cells
+even when they scroll off the screen?
+​Key gameplay challenge: Can you fix a gameplay bug where players can farm tokens by
+moving into and out of a region repeatedly to get access to fresh resources?
+
+### D3.c Steps
+
+- [ ] Have cells maintain the same value when player moves
+- [ ] Have cells maintain the same value when they go offscreen and onscreen
+- [ ] Apply the Flyweight pattern or similarly-effective memory-saving strategy
+- [ ] Have memento pattern or similarly-effective serialization strategy to preserve cell state
+- [ ] Refactor between each step if needed
