@@ -50,4 +50,4 @@ other locations to get access to additional crafting materials?
 - [x] Have cells far from user to be non-interactable with different color display
 - [x] Have cells to be memoryless and farmable by user
 - [ ] Have achievement ending when user reaches certain number on inventory
-- [ ] Have refactoring between each step
+- [x] Have refactoring between each step
