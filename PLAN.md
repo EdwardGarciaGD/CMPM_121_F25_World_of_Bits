@@ -61,8 +61,8 @@ moving into and out of a region repeatedly to get access to fresh resources?
 
 ### D3.c Steps
 
-- [ ] Have cells maintain the same value when player moves
-- [ ] Have cells maintain the same value when they go offscreen and onscreen
-- [ ] Apply the Flyweight pattern or similarly-effective memory-saving strategy
-- [ ] Have memento pattern or similarly-effective serialization strategy to preserve cell state
+- [x] Have cells maintain the same value when player moves
+- [x] Have cells maintain the same value when they go offscreen and onscreen
+- [x] Apply the Flyweight pattern or similarly-effective memory-saving strategy
+- [x] Have memento pattern or similarly-effective serialization strategy to preserve cell state
 - [ ] Refactor between each step if needed
