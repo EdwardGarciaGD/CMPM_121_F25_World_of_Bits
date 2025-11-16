@@ -17,6 +17,7 @@ const minMapZoomLevel = 14;
 const maxMapZoomLevel = 18;
 const tileDegrees = 13e-4;
 const cacheSpawnProbability = 0.6;
+const interactionRadius = 220;
 const userCoords: coordinates = {
   i: 36.997936938057016,
   j: -122.05703507501151,
@@ -141,32 +142,37 @@ function spawnCache(i: number, j: number) {
   cachePopup.appendChild(dropButton);
 
   const circleCache = L.circle(bounds, { radius: 7 }).addTo(map);
-  circleCache.bindPopup(() => {
-    // Updates player Inventory and token value inside cell
-    takeButton.addEventListener("click", () => {
-      if (cellTokenValue > 0) {
-        if (playerInventory === cellTokenValue || playerInventory === 0) {
-          playerInventory += cellTokenValue;
-          cellTokenValue = 0;
-          statusPanel.innerHTML = updatePanelText();
-        } else {
-          statusPanel.innerHTML = "Cannot combine unequal proportions";
+
+  if (!cacheInteractable(playerBounds, circleCache.getLatLng())) {
+    circleCache.setStyle({ color: "gray" });
+  } else {
+    circleCache.bindPopup(() => {
+      // Updates player Inventory and token value inside cell
+      takeButton.addEventListener("click", () => {
+        if (cellTokenValue > 0) {
+          if (playerInventory === cellTokenValue || playerInventory === 0) {
+            playerInventory += cellTokenValue;
+            cellTokenValue = 0;
+            statusPanel.innerHTML = updatePanelText();
+          } else {
+            statusPanel.innerHTML = "Cannot combine unequal proportions";
+          }
+          popupText.textContent = updatePopupText(cellTokenValue);
         }
-        popupText.textContent = updatePopupText(cellTokenValue);
-      }
-    });
+      });
 
-    dropButton.addEventListener("click", () => {
-      if (cellTokenValue === 0) {
-        cellTokenValue = playerInventory;
-        playerInventory = 0;
-        statusPanel.innerHTML = updatePanelText();
-        popupText.textContent = updatePopupText(cellTokenValue);
-      }
-    });
+      dropButton.addEventListener("click", () => {
+        if (cellTokenValue === 0) {
+          cellTokenValue = playerInventory;
+          playerInventory = 0;
+          statusPanel.innerHTML = updatePanelText();
+          popupText.textContent = updatePopupText(cellTokenValue);
+        }
+      });
 
-    return cachePopup;
-  });
+      return cachePopup;
+    });
+  }
 }
 
 function createDocuElement(
@@ -251,4 +257,10 @@ function clearMapFromCells() {
       layer.remove();
     }
   });
+}
+
+function cacheInteractable(userBounds: L.LatLng, cache: L.LatLng): boolean {
+  const distance = map.distance(userBounds, cache);
+
+  return distance <= interactionRadius;
 }
