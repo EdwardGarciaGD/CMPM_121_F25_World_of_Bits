@@ -5,6 +5,13 @@ import luck from "./_luck.ts";
 import playerIconURL from "./Player Icon.jpg"; // User marker icon
 import "./style.css";
 
+// Extend Leaflet's options
+declare module "leaflet" {
+  interface CircleMarkerOptions {
+    dataValue: number;
+  }
+}
+
 type coordinates = {
   i: number;
   j: number;
@@ -18,6 +25,7 @@ const maxMapZoomLevel = 18;
 const tileDegrees = 13e-4;
 const cacheSpawnProbability = 0.6;
 const interactionRadius = 220;
+const winStateValue = 4;
 const userCoords: coordinates = {
   i: 36.997936938057016,
   j: -122.05703507501151,
@@ -140,7 +148,8 @@ function spawnCache(i: number, j: number) {
   const dropButton = createDocuElement("button", "drop", "Drop");
   cachePopup.appendChild(dropButton);
 
-  const circleCache = L.circle(bounds, { radius: 7 }).addTo(map);
+  const circleCache = L.circle(bounds, { radius: 7, dataValue: cellTokenValue })
+    .addTo(map);
 
   if (!cacheInteractable(playerBounds, circleCache.getLatLng())) {
     circleCache.setStyle({ color: "gray" });
@@ -154,6 +163,7 @@ function spawnCache(i: number, j: number) {
             userHand += cellTokenValue;
             cellTokenValue = 0;
             statusPanel.innerHTML = updatePanelText();
+            checkWinCondition();
           } else {
             statusPanel.innerHTML = "Cannot combine unequal proportions";
           }
@@ -264,5 +274,15 @@ function cacheInteractable(userBounds: L.LatLng, cache: L.LatLng): boolean {
   return userDistance <= interactionRadius;
 }
 
-//function checkWinCondition() {
-//}
+function triggerWin() {
+  L.popup()
+    .setLatLng(map.getCenter())
+    .setContent(`<b class="win-popup">🪹Bird nest complete!🪹</b>`)
+    .openOn(map);
+}
+
+function checkWinCondition() {
+  if (userHand >= winStateValue) {
+    triggerWin();
+  }
+}
