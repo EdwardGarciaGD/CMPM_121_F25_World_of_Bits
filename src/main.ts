@@ -17,6 +17,11 @@ type coordinates = {
   j: number;
 };
 
+interface CacheCell {
+  tokenValue: number;
+  marker: L.Circle;
+}
+
 // Gameplay parameters
 const emptyInventoryString = "You are holding nothing";
 const mapZoomLevel = 17;
@@ -34,8 +39,6 @@ const startingLocation = L.latLng(
   userCoords.i,
   userCoords.j,
 );
-
-let cacheRecreate = false;
 
 // UI elements
 document.title = "Beachcomb the World";
@@ -94,16 +97,16 @@ userControl.addTo(map);
 userControl = new rightMovement({ position: "bottomleft" });
 userControl.addTo(map);
 
-// Stored cache locations throughout map
-const cacheCoordSet = new Set<string>();
+// Stored caches throughout map
+const cacheStorage = new Map<string, CacheCell>();
 
-// Initial cache creation
+// Initial caches creation
 const totalCaches = 80000;
 for (let i = 0; i < totalCaches; i++) {
   const lat = Math.random() * 180 - 90;
   const lon = Math.random() * 360 - 180;
   if (luck([lat, lon].toString()) < cacheSpawnProbability) {
-    spawnCache(lat, lon);
+    createInitCaches(lat, lon);
   }
 }
 
@@ -112,34 +115,12 @@ map.on("moveend", () => {
   displayVisibleCells(userBounds);
 });
 
-// Adds caches to the map by cell numbers
-function spawnCache(i: number, j: number) {
-  const playerBounds = userMarker.getLatLng();
-  let lat;
-  let lon;
-
-  // Checks if caches need initial creation
-  if (!cacheRecreate) {
-    lat = playerBounds.lat + i * tileDegrees;
-    lon = playerBounds.lng + j * tileDegrees;
-  } else {
-    lat = i;
-    lon = j;
-  }
-  const bounds = L.latLng([
-    lat,
-    lon,
-  ]);
-
-  cacheCoordSet.add(`${bounds.lat},${bounds.lng}`);
-
-  let cellTokenValue = Math.floor(luck([i, j, "initialValue"].toString()) * 2);
-
-  // Element creations for cache tokens
+// Creates popup for initial and interactable caches
+function attachPopup(circle: L.Circle, cell: CacheCell) {
   const cachePopup = document.createElement("div");
 
   const popupText = document.createElement("p");
-  popupText.textContent = updatePopupText(cellTokenValue);
+  popupText.textContent = updatePopupText(cell.tokenValue);
   cachePopup.appendChild(popupText);
 
   const takeButton = createDocuElement("button", "take", "Take");
@@ -148,41 +129,72 @@ function spawnCache(i: number, j: number) {
   const dropButton = createDocuElement("button", "drop", "Drop");
   cachePopup.appendChild(dropButton);
 
-  const circleCache = L.circle(bounds, { radius: 7, dataValue: cellTokenValue })
-    .addTo(map);
-
-  if (!cacheInteractable(playerBounds, circleCache.getLatLng())) {
-    circleCache.setStyle({ color: "gray" });
-  } else {
-    circleCache.bindPopup(() => {
-      // Updates player Inventory and token value inside cell
-      // Updates status panel and popup text
-      takeButton.addEventListener("click", () => {
-        if (cellTokenValue > 0) {
-          if (userHand === cellTokenValue || userHand === 0) {
-            userHand += cellTokenValue;
-            cellTokenValue = 0;
-            statusPanel.innerHTML = updatePanelText();
-            checkWinCondition();
-          } else {
-            statusPanel.innerHTML = "Cannot combine unequal proportions";
-          }
-          popupText.textContent = updatePopupText(cellTokenValue);
-        }
-      });
-
-      dropButton.addEventListener("click", () => {
-        if (cellTokenValue === 0) {
-          cellTokenValue = userHand;
-          userHand = 0;
+  circle.bindPopup(() => {
+    // Updates user hand and token value inside cell
+    // Updates status panel and popup text
+    takeButton.onclick = () => {
+      if (cell.tokenValue > 0) {
+        if (userHand === cell.tokenValue || userHand === 0) {
+          userHand += cell.tokenValue;
+          cell.tokenValue = 0;
           statusPanel.innerHTML = updatePanelText();
-          popupText.textContent = updatePopupText(cellTokenValue);
+          checkWinCondition();
+        } else {
+          statusPanel.innerHTML = "Cannot combine unequal proportions";
         }
-      });
+        popupText.textContent = updatePopupText(cell.tokenValue);
+      }
+    };
 
-      return cachePopup;
-    });
+    dropButton.onclick = () => {
+      if (cell.tokenValue === 0) {
+        cell.tokenValue = userHand;
+        userHand = 0;
+        statusPanel.innerHTML = updatePanelText();
+        popupText.textContent = updatePopupText(cell.tokenValue);
+      }
+    };
+
+    return cachePopup;
+  });
+}
+
+function createCache(lat: number, lon: number): CacheCell {
+  const key = `${lat},${lon}`;
+  const playerBounds = userMarker.getLatLng();
+  const latLng = L.latLng(lat, lon);
+
+  if (!cacheStorage.has(key)) {
+    const initialValue = Math.floor(
+      luck([lat, lon, "initialValue"].toString()) * 2,
+    );
+    const circleCache = L.circle(latLng, { radius: 7, dataValue: initialValue })
+      .addTo(map);
+
+    cacheStorage.set(key, { tokenValue: initialValue, marker: circleCache });
+  } else {
+    cacheStorage.get(key)?.marker.addTo(map);
   }
+
+  const cache = cacheStorage.get(key)?.marker;
+  if (cache) {
+    if (!cacheInteractable(playerBounds, cache.getLatLng())) {
+      cacheStorage.get(key)!.marker.setStyle({ color: "gray" });
+    } else {
+      cacheStorage.get(key)!.marker.setStyle({ color: "blue" });
+      attachPopup(cacheStorage.get(key)!.marker, cacheStorage.get(key)!);
+    }
+  }
+  return cacheStorage.get(key)!;
+}
+
+// Adds initial caches to the map by cell numbers
+function createInitCaches(i: number, j: number) {
+  const playerBounds = userMarker.getLatLng();
+  const lat = playerBounds.lat + i * tileDegrees;
+  const lon = playerBounds.lng + j * tileDegrees;
+
+  createCache(lat, lon);
 }
 
 function createDocuElement(
@@ -239,31 +251,32 @@ function createCustomControl(text: string, direction: "N" | "S" | "E" | "W") {
 }
 
 function displayVisibleCells(bounds: L.LatLngBounds) {
-  const visibleCells = new Set<string>();
-
-  clearMapFromCells();
-
-  // Cache recreation
-  cacheCoordSet.forEach((key) => {
-    const [latStr, lonStr] = key.split(",").map((s) => s.trim());
-    const lat = parseFloat(latStr);
-    const lon = parseFloat(lonStr);
-
-    if (isNaN(lat) || isNaN(lon)) return;
-
-    if (bounds.contains([lat, lon])) {
-      cacheRecreate = true;
-      spawnCache(lat, lon);
-      visibleCells.add(key);
-    }
-  });
-  cacheRecreate = false;
-}
-
-function clearMapFromCells() {
+  // Removes unseen caches
   map.eachLayer((layer) => {
     if (layer instanceof L.Circle) {
-      layer.remove();
+      const latLng = layer.getLatLng();
+
+      if (!bounds.contains(latLng)) {
+        layer.remove();
+      }
+    }
+  });
+
+  // Spawns cache cells within bounds and updates interactivity
+  cacheStorage.forEach((cell, key) => {
+    const [lat, lon] = key.split(",").map(parseFloat);
+    const latLng = L.latLng(lat, lon);
+    const userBounds = userMarker.getLatLng();
+
+    if (bounds.contains(latLng)) {
+      createCache(lat, lon);
+
+      if (!cacheInteractable(userBounds, cell.marker.getLatLng())) {
+        cell.marker.setStyle({ color: "gray" });
+      } else {
+        cell.marker.setStyle({ color: "blue" });
+        attachPopup(cell.marker, cell);
+      }
     }
   });
 }
