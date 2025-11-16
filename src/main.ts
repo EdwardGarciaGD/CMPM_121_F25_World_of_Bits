@@ -2,7 +2,7 @@ import * as L from "leaflet";
 import "leaflet/dist/leaflet.css"; // Supporting style for Leaflet
 import "./_leafletWorkaround.ts"; // Fixes for missing Leaflet images
 import luck from "./_luck.ts";
-import playerIconURL from "./Player Icon.jpg";
+import playerIconURL from "./Player Icon.jpg"; // User marker icon
 import "./style.css";
 
 type coordinates = {
@@ -60,16 +60,16 @@ L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
 }).addTo(map);
 
 // User marker
-const playerIcon = L.icon({
+const userIcon = L.icon({
   iconUrl: playerIconURL,
   iconSize: [40, 40],
 });
-const playerMarker = L.marker(startingLocation, { icon: playerIcon })
+const userMarker = L.marker(startingLocation, { icon: userIcon })
   .addTo(map);
-playerMarker.bindTooltip("You are here");
+userMarker.bindTooltip("This is you");
 
-// Player's inventory
-let playerInventory = 0;
+// User's inventory
+let userHand = 0;
 statusPanel.innerHTML = emptyInventoryString;
 
 const leftMovement = createCustomControl("◀", "W");
@@ -86,7 +86,7 @@ userControl.addTo(map);
 userControl = new rightMovement({ position: "bottomleft" });
 userControl.addTo(map);
 
-// Stored caches throughout map
+// Stored cache locations throughout map
 const cacheCoordSet = new Set<string>();
 
 // Initial cache creation
@@ -106,8 +106,7 @@ map.on("moveend", () => {
 
 // Adds caches to the map by cell numbers
 function spawnCache(i: number, j: number) {
-  const playerBounds = playerMarker.getLatLng();
-
+  const playerBounds = userMarker.getLatLng();
   let lat;
   let lon;
 
@@ -119,7 +118,6 @@ function spawnCache(i: number, j: number) {
     lat = i;
     lon = j;
   }
-
   const bounds = L.latLng([
     lat,
     lon,
@@ -129,6 +127,7 @@ function spawnCache(i: number, j: number) {
 
   let cellTokenValue = Math.floor(luck([i, j, "initialValue"].toString()) * 2);
 
+  // Element creations for cache tokens
   const cachePopup = document.createElement("div");
 
   const popupText = document.createElement("p");
@@ -148,10 +147,11 @@ function spawnCache(i: number, j: number) {
   } else {
     circleCache.bindPopup(() => {
       // Updates player Inventory and token value inside cell
+      // Updates status panel and popup text
       takeButton.addEventListener("click", () => {
         if (cellTokenValue > 0) {
-          if (playerInventory === cellTokenValue || playerInventory === 0) {
-            playerInventory += cellTokenValue;
+          if (userHand === cellTokenValue || userHand === 0) {
+            userHand += cellTokenValue;
             cellTokenValue = 0;
             statusPanel.innerHTML = updatePanelText();
           } else {
@@ -163,8 +163,8 @@ function spawnCache(i: number, j: number) {
 
       dropButton.addEventListener("click", () => {
         if (cellTokenValue === 0) {
-          cellTokenValue = playerInventory;
-          playerInventory = 0;
+          cellTokenValue = userHand;
+          userHand = 0;
           statusPanel.innerHTML = updatePanelText();
           popupText.textContent = updatePopupText(cellTokenValue);
         }
@@ -195,8 +195,8 @@ function updatePopupText(value: number): string {
 }
 
 function updatePanelText(): string {
-  if (playerInventory === 1) return `You have ${playerInventory} twig`;
-  if (playerInventory > 0) return `You have ${playerInventory} twigs`;
+  if (userHand === 1) return `You have ${userHand} twig`;
+  if (userHand > 0) return `You have ${userHand} twigs`;
   else {
     return emptyInventoryString;
   }
@@ -207,10 +207,11 @@ function moveUser(direction: "N" | "S" | "E" | "W") {
     { N: [.001, 0], S: [-.001, 0], E: [0, .001], W: [0, -.001] }[direction];
   userCoords.i += offset[0];
   userCoords.j += offset[1];
-  playerMarker.setLatLng([userCoords.i, userCoords.j]);
+  userMarker.setLatLng([userCoords.i, userCoords.j]);
   map.panTo([userCoords.i, userCoords.j]);
 }
 
+// Creates custom control class for player movement buttons inside map
 function createCustomControl(text: string, direction: "N" | "S" | "E" | "W") {
   const control = L.Control.extend({
     options: { position: "bottomright" },
@@ -219,7 +220,6 @@ function createCustomControl(text: string, direction: "N" | "S" | "E" | "W") {
       button.innerHTML = text;
       button.onclick = () => {
         moveUser(direction);
-        console.log(cacheCoordSet);
       };
 
       return button;
@@ -253,14 +253,16 @@ function displayVisibleCells(bounds: L.LatLngBounds) {
 function clearMapFromCells() {
   map.eachLayer((layer) => {
     if (layer instanceof L.Circle) {
-      //layer.setStyle({ color: 'red' });
       layer.remove();
     }
   });
 }
 
 function cacheInteractable(userBounds: L.LatLng, cache: L.LatLng): boolean {
-  const distance = map.distance(userBounds, cache);
+  const userDistance = map.distance(userBounds, cache);
 
-  return distance <= interactionRadius;
+  return userDistance <= interactionRadius;
 }
+
+//function checkWinCondition() {
+//}
