@@ -65,4 +65,4 @@ moving into and out of a region repeatedly to get access to fresh resources?
 - [x] Have cells maintain the same value when they go offscreen and onscreen
 - [x] Apply the Flyweight pattern or similarly-effective memory-saving strategy
 - [x] Have memento pattern or similarly-effective serialization strategy to preserve cell state
-- [ ] Refactor between each step if needed
+- [x] Refactor between each step if needed
