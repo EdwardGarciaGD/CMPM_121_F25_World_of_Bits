@@ -66,3 +66,21 @@ moving into and out of a region repeatedly to get access to fresh resources?
 - [x] Apply the Flyweight pattern or similarly-effective memory-saving strategy
 - [x] Have memento pattern or similarly-effective serialization strategy to preserve cell state
 - [x] Refactor between each step if needed
+
+## D3.d: Real-World Space and Time Gameplay
+
+​Key technical challenges: Can your software remember game state even when the page
+is closed? Is the player character’s in-game movement controlled by the real-world
+geolocation of their device?
+​Key gameplay challenge: Can the user test the game with multiple gameplay sessions,
+some involving real-world movement and some involving simulated movement?
+
+### D3.d Steps
+
+- [ ] Put Browser geolocation API option for player movement
+- [ ] Implement new movement system with Facade design pattern
+- [ ] Have game saving state
+- [ ] Add new game button
+- [ ] Add local or geolocation movement button option for user
+- [ ] Refactor along the way
+- [ ] Have popup for player hand
