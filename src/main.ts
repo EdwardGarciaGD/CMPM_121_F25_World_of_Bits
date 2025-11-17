@@ -5,18 +5,12 @@ import luck from "./_luck.ts";
 import playerIconURL from "./Player Icon.jpg"; // User marker icon
 import "./style.css";
 
-// Extend Leaflet's options
-declare module "leaflet" {
-  interface CircleMarkerOptions {
-    dataValue: number;
-  }
-}
-
 type coordinates = {
   i: number;
   j: number;
 };
 
+// Flyweight key, tokenValue an is intristic state
 interface CacheCell {
   tokenValue: number;
   marker: L.Circle;
@@ -29,6 +23,7 @@ const minMapZoomLevel = 14;
 const maxMapZoomLevel = 18;
 const tileDegrees = 13e-4;
 const cacheSpawnProbability = 0.6;
+const totalCaches = 80000;
 const interactionRadius = 220;
 const winStateValue = 4;
 const userCoords: coordinates = {
@@ -39,6 +34,10 @@ const startingLocation = L.latLng(
   userCoords.i,
   userCoords.j,
 );
+
+// Stored caches throughout map
+// Memento pattern for state preservation
+const cacheStorage = new Map<string, CacheCell>();
 
 // UI elements
 document.title = "Beachcomb the World";
@@ -79,10 +78,11 @@ const userMarker = L.marker(startingLocation, { icon: userIcon })
   .addTo(map);
 userMarker.bindTooltip("This is you");
 
-// User's inventory
+// User's inventory/hand
 let userHand = 0;
 statusPanel.innerHTML = emptyInventoryString;
 
+// User local control movement
 const leftMovement = createCustomControl("◀", "W");
 const upMovement = createCustomControl("▲", "N");
 const downMovement = createCustomControl("▼", "S");
@@ -97,11 +97,7 @@ userControl.addTo(map);
 userControl = new rightMovement({ position: "bottomleft" });
 userControl.addTo(map);
 
-// Stored caches throughout map
-const cacheStorage = new Map<string, CacheCell>();
-
 // Initial caches creation
-const totalCaches = 80000;
 for (let i = 0; i < totalCaches; i++) {
   const lat = Math.random() * 180 - 90;
   const lon = Math.random() * 360 - 180;
@@ -137,10 +133,11 @@ function attachPopup(circle: L.Circle, cell: CacheCell) {
         if (userHand === cell.tokenValue || userHand === 0) {
           userHand += cell.tokenValue;
           cell.tokenValue = 0;
-          statusPanel.innerHTML = updatePanelText();
+          updatePanelText();
           checkWinCondition();
         } else {
-          statusPanel.innerHTML = "Cannot combine unequal proportions";
+          statusPanel.innerHTML =
+            `Unequal proportions, cannot combine ${userHand} and ${cell.tokenValue}`;
         }
         popupText.textContent = updatePopupText(cell.tokenValue);
       }
@@ -150,7 +147,7 @@ function attachPopup(circle: L.Circle, cell: CacheCell) {
       if (cell.tokenValue === 0) {
         cell.tokenValue = userHand;
         userHand = 0;
-        statusPanel.innerHTML = updatePanelText();
+        updatePanelText();
         popupText.textContent = updatePopupText(cell.tokenValue);
       }
     };
@@ -161,30 +158,20 @@ function attachPopup(circle: L.Circle, cell: CacheCell) {
 
 function createCache(lat: number, lon: number): CacheCell {
   const key = `${lat},${lon}`;
-  const playerBounds = userMarker.getLatLng();
   const latLng = L.latLng(lat, lon);
 
   if (!cacheStorage.has(key)) {
     const initialValue = Math.floor(
       luck([lat, lon, "initialValue"].toString()) * 2,
     );
-    const circleCache = L.circle(latLng, { radius: 7, dataValue: initialValue })
-      .addTo(map);
+    const circleCache = L.circle(latLng, { radius: 7 }).addTo(map);
 
     cacheStorage.set(key, { tokenValue: initialValue, marker: circleCache });
   } else {
     cacheStorage.get(key)?.marker.addTo(map);
   }
+  updateCacheColor(cacheStorage.get(key)!);
 
-  const cache = cacheStorage.get(key)?.marker;
-  if (cache) {
-    if (!cacheInteractable(playerBounds, cache.getLatLng())) {
-      cacheStorage.get(key)!.marker.setStyle({ color: "gray" });
-    } else {
-      cacheStorage.get(key)!.marker.setStyle({ color: "blue" });
-      attachPopup(cacheStorage.get(key)!.marker, cacheStorage.get(key)!);
-    }
-  }
   return cacheStorage.get(key)!;
 }
 
@@ -216,11 +203,11 @@ function updatePopupText(value: number): string {
   }
 }
 
-function updatePanelText(): string {
-  if (userHand === 1) return `You have ${userHand} twig`;
-  if (userHand > 0) return `You have ${userHand} twigs`;
+function updatePanelText() {
+  if (userHand === 1) statusPanel.innerHTML = `You have ${userHand} twig`;
+  if (userHand > 0) statusPanel.innerHTML = `You have ${userHand} twigs`;
   else {
-    return emptyInventoryString;
+    statusPanel.innerHTML = emptyInventoryString;
   }
 }
 
@@ -254,29 +241,19 @@ function displayVisibleCells(bounds: L.LatLngBounds) {
   // Removes unseen caches
   map.eachLayer((layer) => {
     if (layer instanceof L.Circle) {
-      const latLng = layer.getLatLng();
-
-      if (!bounds.contains(latLng)) {
-        layer.remove();
-      }
+      if (!bounds.contains(layer.getLatLng())) layer.remove();
     }
   });
 
   // Spawns cache cells within bounds and updates interactivity
+  // Extrinsic state
   cacheStorage.forEach((cell, key) => {
     const [lat, lon] = key.split(",").map(parseFloat);
     const latLng = L.latLng(lat, lon);
-    const userBounds = userMarker.getLatLng();
 
     if (bounds.contains(latLng)) {
       createCache(lat, lon);
-
-      if (!cacheInteractable(userBounds, cell.marker.getLatLng())) {
-        cell.marker.setStyle({ color: "gray" });
-      } else {
-        cell.marker.setStyle({ color: "blue" });
-        attachPopup(cell.marker, cell);
-      }
+      updateCacheColor(cell);
     }
   });
 }
@@ -297,5 +274,16 @@ function triggerWin() {
 function checkWinCondition() {
   if (userHand >= winStateValue) {
     triggerWin();
+  }
+}
+
+function updateCacheColor(cell: CacheCell) {
+  const userBounds = userMarker.getLatLng();
+
+  if (!cacheInteractable(userBounds, cell.marker.getLatLng())) {
+    cell.marker.setStyle({ color: "gray" });
+  } else {
+    cell.marker.setStyle({ color: "blue" });
+    attachPopup(cell.marker, cell);
   }
 }
