@@ -5,6 +5,95 @@ import luck from "./_luck.ts";
 import playerIconURL from "./Player Icon.jpg"; // User marker icon
 import "./style.css";
 
+// Movement system with Facade design pattern
+class MovementFacade {
+  private isGeolocationActive: boolean = false;
+  private readonly GEOLOCATION_OPTIONS = {
+    enableHighAccuracy: true,
+    maximumAge: 1000,
+    timeout: 5000,
+  };
+
+  constructor() {
+    this.init();
+  }
+
+  private init() {
+    if ("geolocation" in navigator) {
+      this.startGeolocation();
+    } else {
+      this.setupManualControls();
+      if (!isInitFirstTime) randomizeCacheLocations();
+    }
+  }
+
+  // User Geolocation movement setup
+  private startGeolocation() {
+    const success = (position: GeolocationPosition) => {
+      const { latitude, longitude } = position.coords;
+      this.updateUserPosition(latitude, longitude);
+      this.isGeolocationActive = true;
+      if (!isInitFirstTime) randomizeCacheLocations();
+    };
+
+    const error = (err: GeolocationPositionError) => {
+      console.warn("Geolocation failed:", err.message);
+      this.setupManualControls();
+      if (!isInitFirstTime) randomizeCacheLocations();
+    };
+
+    navigator.geolocation.watchPosition(
+      success,
+      error,
+      this.GEOLOCATION_OPTIONS,
+    );
+  }
+
+  private updateUserPosition(lat: number, lng: number) {
+    userCoords.i = lat;
+    userCoords.j = lng;
+    userMarker.setLatLng([lat, lng]);
+    map.panTo([lat, lng]);
+  }
+
+  private setupManualControls() {
+    if (this.isGeolocationActive) return;
+
+    const directions = ["N", "S", "E", "W"] as const;
+    const positions = {
+      N: "bottomleft",
+      S: "bottomleft",
+      E: "bottomleft",
+      W: "bottomleft",
+    } as const;
+
+    directions.forEach((dir) => {
+      const ControlClass = createCustomControl(
+        dir === "N" ? "▲" : dir === "S" ? "▼" : dir === "E" ? "▶" : "◀",
+        dir,
+      );
+      const control = new ControlClass({ position: positions[dir] });
+      control.addTo(map);
+    });
+  }
+
+  // Unified control movement
+  public move(direction: "N" | "S" | "E" | "W") {
+    moveUser(direction);
+  }
+
+  public refresh() {
+    if (!this.isGeolocationActive) {
+      const currPosition = userMarker.getLatLng();
+      this.updateUserPosition(currPosition.lat, currPosition.lng);
+    }
+  }
+
+  public stop() {
+    this.isGeolocationActive = false;
+  }
+}
+
 type coordinates = {
   i: number;
   j: number;
@@ -26,11 +115,11 @@ const cacheSpawnProbability = 0.6;
 const totalCaches = 80000;
 const interactionRadius = 220;
 const winStateValue = 4;
-let userCoords: coordinates = {
+const userCoords: coordinates = {
   i: 36.997936938057016,
   j: -122.05703507501151,
 };
-let startingLocation = L.latLng(
+const startingLocation = L.latLng(
   userCoords.i,
   userCoords.j,
 );
@@ -83,8 +172,7 @@ userMarker.bindTooltip("This is you");
 let userHand = 0;
 statusPanel.innerHTML = emptyInventoryString;
 
-// User Geolocation movement setup
-getGeolocationSetup();
+const _movementSystem = new MovementFacade();
 
 map.on("moveend", () => {
   const userBounds = map.getBounds();
@@ -278,50 +366,4 @@ function updateCacheColor(cell: CacheCell) {
     cell.marker.setStyle({ color: "blue" });
     attachPopup(cell.marker, cell);
   }
-}
-
-function getGeolocationSetup() {
-  if ("geolocation" in navigator) {
-    navigator.geolocation.watchPosition(
-      (position) => {
-        const { latitude, longitude } = position.coords;
-
-        userCoords = { i: latitude, j: longitude };
-        startingLocation = L.latLng(userCoords.i, userCoords.j);
-        userMarker.setLatLng([latitude, longitude]);
-        map.panTo([latitude, longitude]);
-        if (!isInitFirstTime) randomizeCacheLocations();
-      },
-      (error) => {
-        console.error("Geolocation error:", error);
-        localMovementSetup();
-        if (!isInitFirstTime) randomizeCacheLocations();
-      },
-      {
-        enableHighAccuracy: true,
-        maximumAge: 1000,
-        timeout: 5000,
-      },
-    );
-  } else {
-    alert("Geolocation not supported, switching to local controls");
-    localMovementSetup();
-    if (!isInitFirstTime) randomizeCacheLocations();
-  }
-}
-
-function localMovementSetup() {
-  const leftMovement = createCustomControl("◀", "W");
-  const upMovement = createCustomControl("▲", "N");
-  const downMovement = createCustomControl("▼", "S");
-  const rightMovement = createCustomControl("▶", "E");
-
-  let userControl = new leftMovement({ position: "bottomleft" });
-  userControl.addTo(map);
-  userControl = new upMovement({ position: "bottomleft" });
-  userControl.addTo(map);
-  userControl = new downMovement({ position: "bottomleft" });
-  userControl.addTo(map);
-  userControl = new rightMovement({ position: "bottomleft" });
-  userControl.addTo(map);
 }
