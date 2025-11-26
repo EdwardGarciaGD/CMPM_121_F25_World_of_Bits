@@ -21,19 +21,20 @@ const emptyInventoryString = "You are holding nothing";
 const mapZoomLevel = 17;
 const minMapZoomLevel = 14;
 const maxMapZoomLevel = 18;
-const tileDegrees = 13e-4;
+const tileDegrees = 14e-4;
 const cacheSpawnProbability = 0.6;
 const totalCaches = 80000;
 const interactionRadius = 220;
 const winStateValue = 4;
-const userCoords: coordinates = {
+let userCoords: coordinates = {
   i: 36.997936938057016,
   j: -122.05703507501151,
 };
-const startingLocation = L.latLng(
+let startingLocation = L.latLng(
   userCoords.i,
   userCoords.j,
 );
+let isInitFirstTime = false;
 
 // Stored caches throughout map
 // Memento pattern for state preservation
@@ -82,34 +83,25 @@ userMarker.bindTooltip("This is you");
 let userHand = 0;
 statusPanel.innerHTML = emptyInventoryString;
 
-// User local control movement
-const leftMovement = createCustomControl("◀", "W");
-const upMovement = createCustomControl("▲", "N");
-const downMovement = createCustomControl("▼", "S");
-const rightMovement = createCustomControl("▶", "E");
-
-let userControl = new leftMovement({ position: "bottomleft" });
-userControl.addTo(map);
-userControl = new upMovement({ position: "bottomleft" });
-userControl.addTo(map);
-userControl = new downMovement({ position: "bottomleft" });
-userControl.addTo(map);
-userControl = new rightMovement({ position: "bottomleft" });
-userControl.addTo(map);
-
-// Initial caches creation
-for (let i = 0; i < totalCaches; i++) {
-  const lat = Math.random() * 180 - 90;
-  const lon = Math.random() * 360 - 180;
-  if (luck([lat, lon].toString()) < cacheSpawnProbability) {
-    createInitCaches(lat, lon);
-  }
-}
+// User Geolocation movement setup
+getGeolocationSetup();
 
 map.on("moveend", () => {
   const userBounds = map.getBounds();
   displayVisibleCells(userBounds);
 });
+
+function randomizeCacheLocations() {
+  // Initial caches creation
+  for (let i = 0; i < totalCaches; i++) {
+    const lat = Math.random() * 180 - 90;
+    const lon = Math.random() * 360 - 180;
+    if (luck([lat, lon].toString()) < cacheSpawnProbability) {
+      createInitCaches(lat, lon);
+    }
+  }
+  isInitFirstTime = true;
+}
 
 // Creates popup for initial and interactable caches
 function attachPopup(circle: L.Circle, cell: CacheCell) {
@@ -164,7 +156,7 @@ function createCache(lat: number, lon: number): CacheCell {
     const initialValue = Math.floor(
       luck([lat, lon, "initialValue"].toString()) * 2,
     );
-    const circleCache = L.circle(latLng, { radius: 7 }).addTo(map);
+    const circleCache = L.circle(latLng, { radius: 11 }).addTo(map);
 
     cacheStorage.set(key, { tokenValue: initialValue, marker: circleCache });
   } else {
@@ -177,9 +169,9 @@ function createCache(lat: number, lon: number): CacheCell {
 
 // Adds initial caches to the map by cell numbers
 function createInitCaches(i: number, j: number) {
-  const playerBounds = userMarker.getLatLng();
-  const lat = playerBounds.lat + i * tileDegrees;
-  const lon = playerBounds.lng + j * tileDegrees;
+  //const playerBounds = userMarker.getLatLng();
+  const lat = userCoords.i + i * tileDegrees;
+  const lon = userCoords.j + j * tileDegrees;
 
   createCache(lat, lon);
 }
@@ -286,4 +278,50 @@ function updateCacheColor(cell: CacheCell) {
     cell.marker.setStyle({ color: "blue" });
     attachPopup(cell.marker, cell);
   }
+}
+
+function getGeolocationSetup() {
+  if ("geolocation" in navigator) {
+    navigator.geolocation.watchPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords;
+
+        userCoords = { i: latitude, j: longitude };
+        startingLocation = L.latLng(userCoords.i, userCoords.j);
+        userMarker.setLatLng([latitude, longitude]);
+        map.panTo([latitude, longitude]);
+        if (!isInitFirstTime) randomizeCacheLocations();
+      },
+      (error) => {
+        console.error("Geolocation error:", error);
+        localMovementSetup();
+        if (!isInitFirstTime) randomizeCacheLocations();
+      },
+      {
+        enableHighAccuracy: true,
+        maximumAge: 1000,
+        timeout: 5000,
+      },
+    );
+  } else {
+    alert("Geolocation not supported, switching to local controls");
+    localMovementSetup();
+    if (!isInitFirstTime) randomizeCacheLocations();
+  }
+}
+
+function localMovementSetup() {
+  const leftMovement = createCustomControl("◀", "W");
+  const upMovement = createCustomControl("▲", "N");
+  const downMovement = createCustomControl("▼", "S");
+  const rightMovement = createCustomControl("▶", "E");
+
+  let userControl = new leftMovement({ position: "bottomleft" });
+  userControl.addTo(map);
+  userControl = new upMovement({ position: "bottomleft" });
+  userControl.addTo(map);
+  userControl = new downMovement({ position: "bottomleft" });
+  userControl.addTo(map);
+  userControl = new rightMovement({ position: "bottomleft" });
+  userControl.addTo(map);
 }
