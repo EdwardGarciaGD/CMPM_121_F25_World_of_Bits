@@ -78,7 +78,7 @@ some involving real-world movement and some involving simulated movement?
 ### D3.d Steps
 
 - [x] Put Browser geolocation API option for player movement
-- [ ] Implement new movement system with Facade design pattern
+- [x] Implement new movement system with Facade design pattern
 - [ ] Have game saving state
 - [ ] Add new game button
 - [ ] Add local or geolocation movement button option for user
