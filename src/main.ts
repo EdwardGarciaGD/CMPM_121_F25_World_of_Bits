@@ -13,6 +13,12 @@ class MovementFacade {
     maximumAge: 1000,
     timeout: 5000,
   };
+  private manualControls = {
+    N: null as L.Control | null,
+    S: null as L.Control | null,
+    E: null as L.Control | null,
+    W: null as L.Control | null,
+  };
 
   constructor() {
     this.init();
@@ -33,6 +39,7 @@ class MovementFacade {
       const { latitude, longitude } = position.coords;
       this.updateUserPosition(latitude, longitude);
       this.isGeolocationActive = true;
+      isGeolocationOn = true;
       if (!isInitFirstTime) randomizeCacheLocations();
     };
 
@@ -42,7 +49,7 @@ class MovementFacade {
       if (!isInitFirstTime) randomizeCacheLocations();
     };
 
-    navigator.geolocation.watchPosition(
+    geoWatchID = navigator.geolocation.watchPosition(
       success,
       error,
       this.GEOLOCATION_OPTIONS,
@@ -67,6 +74,8 @@ class MovementFacade {
       W: "bottomleft",
     } as const;
 
+    this.removeManualControls();
+
     directions.forEach((dir) => {
       const ControlClass = createCustomControl(
         dir === "N" ? "▲" : dir === "S" ? "▼" : dir === "E" ? "▶" : "◀",
@@ -74,12 +83,23 @@ class MovementFacade {
       );
       const control = new ControlClass({ position: positions[dir] });
       control.addTo(map);
+      this.manualControls[dir] = control;
     });
   }
 
   // Unified control movement
   public move(direction: "N" | "S" | "E" | "W") {
     moveUser(direction);
+  }
+
+  public removeManualControls() {
+    const directions = ["N", "S", "E", "W"] as const;
+
+    directions.forEach((dir) => {
+      if (this.manualControls[dir]) {
+        map.removeControl(this.manualControls[dir]!);
+      }
+    });
   }
 
   public refresh() {
@@ -89,8 +109,26 @@ class MovementFacade {
     }
   }
 
-  public stop() {
-    this.isGeolocationActive = false;
+  public getIsGeolocationActive(): boolean {
+    return this.isGeolocationActive;
+  }
+
+  public convertToManualControls() {
+    if (this.isGeolocationActive) {
+      if (geoWatchID !== null) {
+        navigator.geolocation.clearWatch(geoWatchID);
+        geoWatchID = null;
+      }
+      this.isGeolocationActive = false;
+      this.setupManualControls();
+    }
+  }
+
+  public convertToGeolocation() {
+    if (!this.isGeolocationActive) {
+      this.removeManualControls();
+      this.startGeolocation();
+    }
   }
 }
 
@@ -174,6 +212,8 @@ const userMarker = L.marker(startingLocation, { icon: userIcon })
 userMarker.bindTooltip("This is you");
 
 let isInitFirstTime = false;
+let isGeolocationOn: boolean = false;
+let geoWatchID: number | null = null;
 
 // User's inventory/hand
 let userHand = 0;
@@ -202,6 +242,7 @@ if (loadedState) {
 
 const movementSystem = new MovementFacade();
 
+// New game button
 const NewGameControl = L.Control.extend({
   onAdd: function () {
     const button = L.DomUtil.create("button", "new-game-button");
@@ -216,6 +257,46 @@ const NewGameControl = L.Control.extend({
   },
 });
 new NewGameControl({ position: "topright" }).addTo(map);
+
+// Movement control toggle button
+const MovementToggleControl = L.Control.extend({
+  onAdd: function () {
+    const button = L.DomUtil.create("button", "movement-toggle-button");
+    button.innerHTML = "Toggle Movement";
+    button.title = "Toggle between GPS and manual movement";
+    button.style.backgroundColor = "#ffffffff";
+    button.style.color = "black";
+
+    // Updates button text to display current mode
+    const updateButtonText = () => {
+      if (isGeolocationOn) {
+        button.innerHTML = "Switch to Manual";
+        button.style.backgroundColor = "#4583e6ff";
+      } else {
+        button.innerHTML = "Switch to Geolocation";
+        button.style.backgroundColor = "#2dc759ff";
+      }
+    };
+
+    setTimeout(updateButtonText, 300);
+
+    button.onclick = () => {
+      if (isGeolocationOn) {
+        // Manual switch
+        movementSystem.convertToManualControls();
+        isGeolocationOn = false;
+      } else {
+        // GPS switch
+        movementSystem.convertToGeolocation();
+        isGeolocationOn = true;
+      }
+      updateButtonText();
+    };
+
+    return button;
+  },
+});
+new MovementToggleControl({ position: "bottomright" }).addTo(map);
 
 map.on("moveend", () => {
   const userBounds = map.getBounds();
