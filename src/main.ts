@@ -200,7 +200,22 @@ if (loadedState) {
   console.log("No save found. Starting new game.");
 }
 
-const _movementSystem = new MovementFacade();
+const movementSystem = new MovementFacade();
+
+const NewGameControl = L.Control.extend({
+  onAdd: function () {
+    const button = L.DomUtil.create("button", "new-game-button");
+    button.innerHTML = "New Game";
+    button.title = "Start a new game (resets everything)";
+    button.onclick = () => {
+      if (confirm("Start a new game? Your progress will be lost.")) {
+        createNewGame();
+      }
+    };
+    return button;
+  },
+});
+new NewGameControl({ position: "topright" }).addTo(map);
 
 map.on("moveend", () => {
   const userBounds = map.getBounds();
@@ -428,4 +443,21 @@ function loadState(): userState | null {
     console.warn("Failed to load save data", error);
     return null;
   }
+}
+
+function createNewGame() {
+  localStorage.removeItem("d3GameSave");
+
+  userHand = 0;
+  updatePanelText();
+
+  movementSystem.refresh();
+
+  cacheStorage.forEach((cell) => {
+    cell.marker.remove();
+  });
+  cacheStorage.clear();
+
+  isInitFirstTime = false;
+  randomizeCacheLocations();
 }
