@@ -141,6 +141,7 @@ type userState = {
   userCoordinates: coordinates;
   userHand: number;
   cacheValues: { [key: string]: number };
+  winState: boolean;
 };
 
 // Flyweight key, tokenValue an is intristic state
@@ -179,9 +180,12 @@ const mapStyle = document.createElement("div");
 mapStyle.id = "map";
 document.body.append(mapStyle);
 
-const statusPanel = document.createElement("div");
-statusPanel.id = "statusPanel";
-document.body.append(statusPanel);
+const userStatusPopup = L.popup({
+  closeButton: false,
+  autoClose: false,
+  closeOnEscapeKey: false,
+  closeOnClick: false,
+}).setContent(emptyInventoryString);
 
 // Map creation
 const map = L.map(mapStyle, {
@@ -210,14 +214,15 @@ const userIcon = L.icon({
 const userMarker = L.marker(startingLocation, { icon: userIcon })
   .addTo(map);
 userMarker.bindTooltip("This is you");
+userMarker.bindPopup(userStatusPopup);
 
 let isInitFirstTime = false;
 let isGeolocationOn: boolean = false;
+let isGameWon: boolean = false;
 let geoWatchID: number | null = null;
 
 // User's inventory/hand
 let userHand = 0;
-statusPanel.innerHTML = emptyInventoryString;
 
 // Load saved state try
 const loadedState = loadState();
@@ -225,6 +230,7 @@ if (loadedState) {
   userCoords.i = loadedState.userCoordinates.i;
   userCoords.j = loadedState.userCoordinates.j;
   userHand = loadedState.userHand;
+  isGameWon = loadedState.winState;
   updatePanelText();
   userMarker.setLatLng([userCoords.i, userCoords.j]);
   map.panTo([userCoords.i, userCoords.j]);
@@ -331,6 +337,8 @@ function attachPopup(circle: L.Circle, cell: CacheCell) {
   cachePopup.appendChild(dropButton);
 
   circle.bindPopup(() => {
+    userMarker.closePopup();
+
     // Updates user hand and token value inside cell
     // Updates status panel and popup text
     takeButton.onclick = () => {
@@ -340,10 +348,14 @@ function attachPopup(circle: L.Circle, cell: CacheCell) {
           cell.tokenValue = 0;
           updateAndSaveGame();
         } else {
-          statusPanel.innerHTML =
-            `Unequal proportions, cannot combine ${userHand} and ${cell.tokenValue}`;
+          if (userStatusPopup) {
+            userStatusPopup.setContent(
+              `Unequal proportions, cannot combine ${userHand} and ${cell.tokenValue}`,
+            );
+          }
         }
         popupText.textContent = updatePopupText(cell.tokenValue);
+        userMarker.openPopup();
       }
     };
 
@@ -353,6 +365,7 @@ function attachPopup(circle: L.Circle, cell: CacheCell) {
         userHand = 0;
         updateAndSaveGame();
         popupText.textContent = updatePopupText(cell.tokenValue);
+        userMarker.openPopup();
       }
     };
 
@@ -409,11 +422,19 @@ function updatePopupText(value: number): string {
 }
 
 function updatePanelText() {
-  if (userHand === 1) statusPanel.innerHTML = `You have ${userHand} twig`;
-  if (userHand > 0) statusPanel.innerHTML = `You have ${userHand} twigs`;
-  else {
-    statusPanel.innerHTML = emptyInventoryString;
+  const content = userHand === 0
+    ? emptyInventoryString
+    : userHand === 1
+    ? `You have ${userHand} twig`
+    : `You have ${userHand} twigs`;
+
+  if (userStatusPopup) {
+    userStatusPopup.setContent(content);
+    if (map.hasLayer(userStatusPopup)) {
+      userStatusPopup.update();
+    }
   }
+  userMarker.openPopup();
 }
 
 function moveUser(direction: "N" | "S" | "E" | "W") {
@@ -474,10 +495,12 @@ function triggerWin() {
     .setLatLng(map.getCenter())
     .setContent(`<b class="win-popup">🪹Bird nest complete!🪹</b>`)
     .openOn(map);
+
+  isGameWon = true;
 }
 
 function checkWinCondition() {
-  if (userHand >= winStateValue) {
+  if (userHand >= winStateValue && isGameWon) {
     triggerWin();
   }
 }
@@ -503,6 +526,7 @@ function getUserState(): userState {
     userCoordinates: userCoords,
     userHand: userHand,
     cacheValues: savedCacheValues,
+    winState: isGameWon,
   };
 }
 
