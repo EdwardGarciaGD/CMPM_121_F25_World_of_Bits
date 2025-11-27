@@ -79,7 +79,7 @@ some involving real-world movement and some involving simulated movement?
 
 - [x] Put Browser geolocation API option for player movement
 - [x] Implement new movement system with Facade design pattern
-- [ ] Have game saving state
+- [x] Have game saving state
 - [ ] Add new game button
 - [ ] Add local or geolocation movement button option for user
 - [ ] Refactor along the way
