@@ -81,6 +81,6 @@ some involving real-world movement and some involving simulated movement?
 - [x] Implement new movement system with Facade design pattern
 - [x] Have game saving state
 - [x] Add new game button
-- [ ] Add local or geolocation movement button option for user
-- [ ] Refactor along the way
+- [x] Add local or geolocation movement button option for user
+- [x] Refactor along the way
 - [ ] Have popup for player hand
