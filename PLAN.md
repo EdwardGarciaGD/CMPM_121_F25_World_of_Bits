@@ -83,4 +83,4 @@ some involving real-world movement and some involving simulated movement?
 - [x] Add new game button
 - [x] Add local or geolocation movement button option for user
 - [x] Refactor along the way
-- [ ] Have popup for player hand
+- [x] Have popup for player hand
