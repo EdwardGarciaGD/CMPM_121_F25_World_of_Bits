@@ -99,6 +99,12 @@ type coordinates = {
   j: number;
 };
 
+type userState = {
+  userCoordinates: coordinates;
+  userHand: number;
+  cacheValues: { [key: string]: number };
+};
+
 // Flyweight key, tokenValue an is intristic state
 interface CacheCell {
   tokenValue: number;
@@ -123,7 +129,6 @@ const startingLocation = L.latLng(
   userCoords.i,
   userCoords.j,
 );
-let isInitFirstTime = false;
 
 // Stored caches throughout map
 // Memento pattern for state preservation
@@ -168,15 +173,39 @@ const userMarker = L.marker(startingLocation, { icon: userIcon })
   .addTo(map);
 userMarker.bindTooltip("This is you");
 
+let isInitFirstTime = false;
+
 // User's inventory/hand
 let userHand = 0;
 statusPanel.innerHTML = emptyInventoryString;
+
+// Load saved state try
+const loadedState = loadState();
+if (loadedState) {
+  userCoords.i = loadedState.userCoordinates.i;
+  userCoords.j = loadedState.userCoordinates.j;
+  userHand = loadedState.userHand;
+  updatePanelText();
+  userMarker.setLatLng([userCoords.i, userCoords.j]);
+  map.panTo([userCoords.i, userCoords.j]);
+
+  // Restore cache values
+  Object.entries(loadedState.cacheValues).forEach(([key, value]) => {
+    const [lat, lng] = key.split(",").map(parseFloat);
+    createCache(lat, lng, value);
+  });
+
+  isInitFirstTime = true;
+} else {
+  console.log("No save found. Starting new game.");
+}
 
 const _movementSystem = new MovementFacade();
 
 map.on("moveend", () => {
   const userBounds = map.getBounds();
   displayVisibleCells(userBounds);
+  updateAndSaveGame();
 });
 
 function randomizeCacheLocations() {
@@ -213,8 +242,7 @@ function attachPopup(circle: L.Circle, cell: CacheCell) {
         if (userHand === cell.tokenValue || userHand === 0) {
           userHand += cell.tokenValue;
           cell.tokenValue = 0;
-          updatePanelText();
-          checkWinCondition();
+          updateAndSaveGame();
         } else {
           statusPanel.innerHTML =
             `Unequal proportions, cannot combine ${userHand} and ${cell.tokenValue}`;
@@ -227,7 +255,7 @@ function attachPopup(circle: L.Circle, cell: CacheCell) {
       if (cell.tokenValue === 0) {
         cell.tokenValue = userHand;
         userHand = 0;
-        updatePanelText();
+        updateAndSaveGame();
         popupText.textContent = updatePopupText(cell.tokenValue);
       }
     };
@@ -236,17 +264,19 @@ function attachPopup(circle: L.Circle, cell: CacheCell) {
   });
 }
 
-function createCache(lat: number, lon: number): CacheCell {
+function createCache(lat: number, lon: number, value: number = -1): CacheCell {
   const key = `${lat},${lon}`;
   const latLng = L.latLng(lat, lon);
 
   if (!cacheStorage.has(key)) {
-    const initialValue = Math.floor(
-      luck([lat, lon, "initialValue"].toString()) * 2,
-    );
+    if (value < 0) {
+      value = Math.floor(
+        luck([lat, lon, "initialValue"].toString()) * 2,
+      );
+    }
     const circleCache = L.circle(latLng, { radius: 11 }).addTo(map);
 
-    cacheStorage.set(key, { tokenValue: initialValue, marker: circleCache });
+    cacheStorage.set(key, { tokenValue: value, marker: circleCache });
   } else {
     cacheStorage.get(key)?.marker.addTo(map);
   }
@@ -257,7 +287,6 @@ function createCache(lat: number, lon: number): CacheCell {
 
 // Adds initial caches to the map by cell numbers
 function createInitCaches(i: number, j: number) {
-  //const playerBounds = userMarker.getLatLng();
   const lat = userCoords.i + i * tileDegrees;
   const lon = userCoords.j + j * tileDegrees;
 
@@ -365,5 +394,38 @@ function updateCacheColor(cell: CacheCell) {
   } else {
     cell.marker.setStyle({ color: "blue" });
     attachPopup(cell.marker, cell);
+  }
+}
+
+function getUserState(): userState {
+  const savedCacheValues: { [key: string]: number } = {};
+  cacheStorage.forEach((cell, key) => {
+    savedCacheValues[key] = cell.tokenValue;
+  });
+
+  return {
+    userCoordinates: userCoords,
+    userHand: userHand,
+    cacheValues: savedCacheValues,
+  };
+}
+
+function updateAndSaveGame() {
+  updatePanelText();
+  checkWinCondition();
+  saveState(getUserState());
+}
+
+function saveState(state: userState) {
+  localStorage.setItem("BeachCombSave", JSON.stringify(state));
+}
+
+function loadState(): userState | null {
+  try {
+    const saved = localStorage.getItem("BeachCombSave");
+    return saved ? JSON.parse(saved) : null;
+  } catch (error) {
+    console.warn("Failed to load save data", error);
+    return null;
   }
 }
