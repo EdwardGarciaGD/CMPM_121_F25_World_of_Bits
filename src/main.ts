@@ -28,25 +28,30 @@ class MovementFacade {
     if ("geolocation" in navigator) {
       this.startGeolocation();
     } else {
+      const userBounds = map.getBounds();
       this.setupManualControls();
-      if (!isInitFirstTime) randomizeCacheLocations();
+      //if (!isInitFirstTime) randomizeCacheLocations();
+      if (!isInitFirstTime) generateLocalCaches(userBounds);
     }
   }
 
   // User Geolocation movement setup
   private startGeolocation() {
+    const userBounds = map.getBounds();
     const success = (position: GeolocationPosition) => {
       const { latitude, longitude } = position.coords;
       this.updateUserPosition(latitude, longitude);
       this.isGeolocationActive = true;
       isGeolocationOn = true;
-      if (!isInitFirstTime) randomizeCacheLocations();
+      //if (!isInitFirstTime) randomizeCacheLocations();
+      if (!isInitFirstTime) generateLocalCaches(userBounds);
     };
 
     const error = (err: GeolocationPositionError) => {
       console.warn("Geolocation failed:", err.message);
       this.setupManualControls();
-      if (!isInitFirstTime) randomizeCacheLocations();
+      //if (!isInitFirstTime) randomizeCacheLocations();
+      if (!isInitFirstTime) generateLocalCaches(userBounds);
     };
 
     geoWatchID = navigator.geolocation.watchPosition(
@@ -148,6 +153,7 @@ type userState = {
 interface CacheCell {
   tokenValue: number;
   marker: L.Circle;
+  isOnMap: boolean;
 }
 
 // Gameplay parameters
@@ -310,7 +316,7 @@ map.on("moveend", () => {
   updateAndSaveGame();
 });
 
-function randomizeCacheLocations() {
+function _randomizeCacheLocations() {
   // Initial caches creation
   for (let i = 0; i < totalCaches; i++) {
     const lat = Math.random() * 180 - 90;
@@ -320,6 +326,22 @@ function randomizeCacheLocations() {
     }
   }
   isInitFirstTime = true;
+}
+
+function generateLocalCaches(bounds: L.LatLngBounds, density = 0.001) {
+  const west = bounds.getWest();
+  const east = bounds.getEast();
+  const north = bounds.getNorth();
+  const south = bounds.getSouth();
+
+  // Grid step ~14e-4 corresponds to ~ tileDegrees
+  for (let lat = south; lat <= north; lat += density) {
+    for (let lon = west; lon <= east; lon += density) {
+      if (luck([lat, lon].toString()) < cacheSpawnProbability) {
+        createCache(lat, lon);
+      }
+    }
+  }
 }
 
 // Creates popup for initial and interactable caches
@@ -385,7 +407,11 @@ function createCache(lat: number, lon: number, value: number = -1): CacheCell {
     }
     const circleCache = L.circle(latLng, { radius: 11 }).addTo(map);
 
-    cacheStorage.set(key, { tokenValue: value, marker: circleCache });
+    cacheStorage.set(key, {
+      tokenValue: value,
+      marker: circleCache,
+      isOnMap: true,
+    });
   } else {
     cacheStorage.get(key)?.marker.addTo(map);
   }
@@ -478,7 +504,11 @@ function displayVisibleCells(bounds: L.LatLngBounds) {
     const latLng = L.latLng(lat, lon);
 
     if (bounds.contains(latLng)) {
-      createCache(lat, lon);
+      if (!cacheStorage.get(key)?.isOnMap) {
+        cell.marker.addTo(map);
+        (cell as CacheCell).isOnMap = true;
+      }
+      //createCache(lat, lon);
       updateCacheColor(cell);
     }
   });
@@ -551,6 +581,8 @@ function loadState(): userState | null {
 }
 
 function createNewGame() {
+  const userBounds = map.getBounds();
+
   localStorage.removeItem("d3GameSave");
 
   userHand = 0;
@@ -564,5 +596,6 @@ function createNewGame() {
   cacheStorage.clear();
 
   isInitFirstTime = false;
-  randomizeCacheLocations();
+  generateLocalCaches(userBounds);
+  //randomizeCacheLocations();
 }
