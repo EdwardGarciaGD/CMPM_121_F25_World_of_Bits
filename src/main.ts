@@ -313,6 +313,7 @@ new MovementToggleControl({ position: "bottomright" }).addTo(map);
 map.on("moveend", () => {
   const userBounds = map.getBounds();
   displayVisibleCells(userBounds);
+  generateLocalCaches(userBounds);
   updateAndSaveGame();
 });
 
